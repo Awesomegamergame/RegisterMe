@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Firefox;
 using OpenQA.Selenium.Support.UI;
@@ -62,7 +63,7 @@ namespace Register
                     }
 
                     // Print code continued line
-                    Console.WriteLine("Code continued: You are back on the registration page. Check what new buttons need to be clicked.");
+                    Console.WriteLine("You are back on the registration page.");
                 }
                 catch (WebDriverTimeoutException)
                 {
@@ -97,6 +98,16 @@ namespace Register
                 // Get the continue button and click it
                 var registerContinue = wait.Until(drv => drv.FindElement(By.Id("term-go")));
                 registerContinue.Click();
+
+                // Wait 5 seconds before interacting with the input box
+                Thread.Sleep(1000);
+
+                // Find the input box by id
+                var inputBox = driver.FindElement(By.Id("s2id_autogen5"));
+
+                // Type into the input box
+                inputBox.Clear(); // Optional: clear any existing text
+                inputBox.SendKeys("ENG3343");
 
                 // Keep browser open until user presses a key
                 Console.WriteLine("Press any key to exit...");
