@@ -34,7 +34,7 @@ namespace Register
             using (IWebDriver driver = new FirefoxDriver(options))
             {
                 // Navigate to registration page
-                driver.Navigate().GoToUrl("https://studentssb9.it.usf.edu/StudentRegistrationSsb/ssb/registration/registration");
+                driver.Navigate().GoToUrl("https://studentssb9.it.usf.edu/StudentRegistrationSsb/ssb/registration");
 
                 // Wait for and click the <a> element with id "registerLink"
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
@@ -71,11 +71,12 @@ namespace Register
                     return;
                 }
 
-                // Wait for the page to load by waiting for the dropdown to be visible
+                // Wait for the browser to finish loading the page
+                wait.Timeout = TimeSpan.FromSeconds(30);
                 wait.Until(drv =>
                 {
-                    var dropdown = drv.FindElement(By.CssSelector("a.select2-choice.select2-default"));
-                    return dropdown.Displayed && dropdown.Enabled;
+                    var js = (IJavaScriptExecutor)drv;
+                    return js.ExecuteScript("return document.readyState").ToString() == "complete";
                 });
 
                 // Click the <a> tag with class "select2-choice select2-default"
@@ -90,9 +91,12 @@ namespace Register
 
                 // Get the parent <li> of that <div>
                 var fall2025Li = fall2025Div.FindElement(By.XPath("./ancestor::li"));
-
                 // Click the <li> to select "Fall 2025"
                 fall2025Li.Click();
+
+                // Get the continue button and click it
+                var registerContinue = wait.Until(drv => drv.FindElement(By.Id("term-go")));
+                registerContinue.Click();
 
                 // Keep browser open until user presses a key
                 Console.WriteLine("Press any key to exit...");
