@@ -100,14 +100,23 @@ namespace Register
                 registerContinue.Click();
 
                 // Wait 5 seconds before interacting with the input box
-                Thread.Sleep(1000);
+                Thread.Sleep(2000);
 
                 // Find the input box by id
                 var inputBox = driver.FindElement(By.Id("s2id_autogen5"));
 
                 // Type into the input box
                 inputBox.Clear(); // Optional: clear any existing text
-                inputBox.SendKeys("ENG3343");
+                inputBox.SendKeys("EGN3343");
+
+                // Wait a few seconds
+                Thread.Sleep(2500);
+
+                // Press Enter
+                inputBox.SendKeys(Keys.Enter);
+
+                var searchClass = wait.Until(drv => drv.FindElement(By.Id("search-go")));
+                searchClass.Click();
 
                 // Keep browser open until user presses a key
                 Console.WriteLine("Press any key to exit...");
