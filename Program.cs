@@ -118,6 +118,34 @@ namespace Register
                 var searchClass = wait.Until(drv => drv.FindElement(By.Id("search-go")));
                 searchClass.Click();
 
+                Thread.Sleep(2500);
+
+                // Wait for the table to be present
+                var table = wait.Until(drv => drv.FindElement(By.Id("table1")));
+
+                // Get all <tr> elements inside the <tbody> of the table
+                var rows = table.FindElements(By.XPath(".//tbody/tr"));
+
+                foreach (var row in rows)
+                {
+                    // Check if the row is visible (not display:none)
+                    var displayStyle = row.GetCssValue("display");
+                    if (displayStyle != "none")
+                    {
+                        // For each visible <td> or <th> in the row, print its text if not display:none
+                        var cells = row.FindElements(By.XPath("./td|./th"));
+                        foreach (var cell in cells)
+                        {
+                            var cellDisplay = cell.GetCssValue("display");
+                            if (cellDisplay != "none")
+                            {
+                                Console.Write(cell.Text + "\t");
+                            }
+                        }
+                        Console.WriteLine();
+                    }
+                }
+
                 // Keep browser open until user presses a key
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
