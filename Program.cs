@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Firefox;
 using OpenQA.Selenium.Support.UI;
+using RegisterMe;
 
 namespace Register
 {
@@ -100,7 +103,7 @@ namespace Register
                 registerContinue.Click();
 
                 // Wait 5 seconds before interacting with the input box
-                Thread.Sleep(2000);
+                Thread.Sleep(2500);
 
                 // Find the input box by id
                 var inputBox = driver.FindElement(By.Id("s2id_autogen5"));
@@ -123,27 +126,32 @@ namespace Register
                 // Wait for the table to be present
                 var table = wait.Until(drv => drv.FindElement(By.Id("table1")));
 
-                // Get all <tr> elements inside the <tbody> of the table
-                var rows = table.FindElements(By.XPath(".//tbody/tr"));
+                // Parse and display classes
+                var parsedClasses = ClassTableParser.ParseTable(table);
+                ClassTableParser.PrintClasses(parsedClasses);
 
-                foreach (var row in rows)
+                // Ask user which class to add (for now, default to first)
+                int classIndex = 0; // You can prompt the user here if you want
+                var selectedClass = parsedClasses[classIndex];
+
+                // Check if the class is FULL
+                if (selectedClass.Status != null && selectedClass.Status.ToUpper().Contains("FULL"))
                 {
-                    // Check if the row is visible (not display:none)
-                    var displayStyle = row.GetCssValue("display");
-                    if (displayStyle != "none")
-                    {
-                        // For each visible <td> or <th> in the row, print its text if not display:none
-                        var cells = row.FindElements(By.XPath("./td|./th"));
-                        foreach (var cell in cells)
-                        {
-                            var cellDisplay = cell.GetCssValue("display");
-                            if (cellDisplay != "none")
-                            {
-                                Console.Write(cell.Text + "\t");
-                            }
-                        }
-                        Console.WriteLine();
-                    }
+                    Console.WriteLine("Selected class is FULL. Will re-search until available (stub).");
+                    // Stub: implement your re-search logic here
+                    // Example: while (selectedClass.Status.Contains("FULL")) { ... }
+                }
+                else
+                {
+                    // Add the class
+                    selectedClass.AddButton?.Click();
+                    Console.WriteLine("Class added. Submitting...");
+
+                    // Wait for the submit button to be present and click it
+                    var saveButton = wait.Until(drv => drv.FindElement(By.Id("saveButton")));
+                    saveButton.Click();
+
+                    Console.WriteLine("Registration submitted.");
                 }
 
                 // Keep browser open until user presses a key
