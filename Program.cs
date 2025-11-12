@@ -18,15 +18,29 @@ namespace Register
             string profileName = "botprofile";
             string profileDir = @"C:\Temp\FirefoxBotProfile";
 
-            // Change these to target a different search and table selection
+            // Ask for inputs when not supplied via args
             // args[0] overrides courseCode (e.g., "EML3500")
             // args[1] overrides classChoice (index like "2" or keyword like "Smith" or "LEC")
-            string courseCode = "EML3500";
-            string classChoice = "2"; // leave empty to auto-pick first non-FULL
+            string courseCode = null;
+            string classChoice = null;
+
             if (args != null)
             {
-                if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0])) courseCode = args[0];
-                if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) classChoice = args[1];
+                if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0])) courseCode = args[0].Trim();
+                if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) classChoice = args[1].Trim();
+            }
+
+            // Prompt if not provided
+            while (string.IsNullOrWhiteSpace(courseCode))
+            {
+                Console.Write("Enter course code (e.g., ENG3000L): ");
+                courseCode = (Console.ReadLine() ?? string.Empty).Trim();
+            }
+
+            if (classChoice == null)
+            {
+                Console.Write("Enter preferred class (index like 2, keyword like Smith/LEC, or leave blank to auto-pick first OPEN): ");
+                classChoice = (Console.ReadLine() ?? string.Empty).Trim();
             }
 
             // Create Firefox profile if it doesn't exist
@@ -165,12 +179,13 @@ namespace Register
                     return rows.Any(r => r.Displayed);
                 });
 
-                // NEW: wait until table row count stabilizes (avoids missing late-loaded rows)
+                // Wait until table row count stabilizes (avoids missing late-loaded rows)
                 WaitForStableTable(driver, "table1", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
 
                 var table = driver.FindElement(By.Id("table1"));
                 var parsedClasses = ClassTableParser.ParseTable(table);
 
+                // Print a numbered summary to help picking by index
                 Console.WriteLine("Search results:");
                 for (int i = 0; i < parsedClasses.Count; i++)
                 {
@@ -234,7 +249,8 @@ namespace Register
                         WaitForStableTable(driver, "table1", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
 
                         table = driver.FindElement(By.Id("table1"));
-                        parsedClasses = ClassTableParser.ParseTable(table);
+                        var refreshed = ClassTableParser.ParseTable(table);
+                        parsedClasses = refreshed;
 
                         if (parsedClasses.Count == 0)
                         {
