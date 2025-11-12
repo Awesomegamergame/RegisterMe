@@ -249,8 +249,7 @@ namespace Register
                         WaitForStableTable(driver, "table1", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
 
                         table = driver.FindElement(By.Id("table1"));
-                        var refreshed = ClassTableParser.ParseTable(table);
-                        parsedClasses = refreshed;
+                        parsedClasses = ClassTableParser.ParseTable(table);
 
                         if (parsedClasses.Count == 0)
                         {
