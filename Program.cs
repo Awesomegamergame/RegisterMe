@@ -179,9 +179,9 @@ namespace Register
                     return rows.Any(r => r.Displayed);
                 });
 
-                // Wait until table row count stabilizes (avoids missing late-loaded rows)
-                WaitForStableTable(driver, "table1", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
+                Thread.Sleep(2000); // brief pause to allow table DOM to stabilize
 
+                // Parse the results table
                 var table = driver.FindElement(By.Id("table1"));
                 var parsedClasses = ClassTableParser.ParseTable(table);
 
@@ -227,8 +227,7 @@ namespace Register
                         });
                         SafeClick(driver, searchAgainBtn);
 
-                        // Wait for the search button to be interactable, then click it.
-                        // The class box is prefilled, so we just re-run the same search.
+                        // Re-run the same search (class box is prefilled)
                         var searchGo = wait.Until(d =>
                         {
                             var el = d.FindElement(By.Id("search-go"));
@@ -236,7 +235,7 @@ namespace Register
                         });
                         SafeClick(driver, searchGo);
 
-                        // Wait for refreshed results
+                        // Wait for refreshed results: table exists and has at least one visible row
                         wait.Until(d =>
                         {
                             var tableEl = d.FindElements(By.Id("table1")).FirstOrDefault();
@@ -245,9 +244,9 @@ namespace Register
                             return rows.Any(r => r.Displayed);
                         });
 
-                        // Stabilize again after refresh
-                        WaitForStableTable(driver, "table1", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
+                        Thread.Sleep(2000); // brief pause to allow table DOM to stabilize
 
+                        // Parse current table
                         table = driver.FindElement(By.Id("table1"));
                         parsedClasses = ClassTableParser.ParseTable(table);
 
@@ -347,73 +346,6 @@ namespace Register
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
             }
-        }
-
-        // --- NEW: Wait for table to stabilize (row count stops changing and AJAX idle) ---
-        private static void WaitForStableTable(IWebDriver driver, string tableId, TimeSpan stableFor, TimeSpan timeout)
-        {
-            var swTotal = Stopwatch.StartNew();
-            int lastCount = -1;
-            DateTime lastChange = DateTime.UtcNow;
-
-            while (swTotal.Elapsed < timeout)
-            {
-                try
-                {
-                    var table = driver.FindElements(By.Id(tableId)).FirstOrDefault();
-                    if (table == null || !table.Displayed)
-                    {
-                        Thread.Sleep(120);
-                        continue;
-                    }
-
-                    var rows = table.FindElements(By.CssSelector("tbody tr"))
-                                    .Where(r =>
-                                    {
-                                        try { return r.Displayed && r.GetCssValue("display") != "none"; }
-                                        catch { return false; }
-                                    })
-                                    .ToList();
-
-                    int count = rows.Count;
-
-                    if (count != lastCount)
-                    {
-                        lastCount = count;
-                        lastChange = DateTime.UtcNow;
-                    }
-
-                    bool ajaxBusy = false;
-                    try
-                    {
-                        var js = (IJavaScriptExecutor)driver;
-                        ajaxBusy = (bool)js.ExecuteScript("return !!window.jQuery && window.jQuery.active > 0;");
-                    }
-                    catch { /* ignore */ }
-
-                    // Optional: detect a generic loading overlay if present
-                    bool overlayVisible = false;
-                    try
-                    {
-                        var overlays = driver.FindElements(By.CssSelector("div.blockUI, div.loading, div.spinner"));
-                        overlayVisible = overlays.Any(o => o.Displayed);
-                    }
-                    catch { }
-
-                    if (!ajaxBusy && !overlayVisible && lastCount > 0 &&
-                        (DateTime.UtcNow - lastChange) >= stableFor)
-                    {
-                        return;
-                    }
-                }
-                catch (StaleElementReferenceException)
-                {
-                    // Let it retry
-                }
-
-                Thread.Sleep(150);
-            }
-            // Timeout reached; proceed with whatever is loaded.
         }
 
         private static ParsedClass ChooseClass(List<ParsedClass> classes, string preference)
