@@ -27,7 +27,8 @@ namespace Register
             if (args != null)
             {
                 if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0])) courseCode = args[0].Trim();
-                if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) classChoice = args[1].Trim();
+                // Accept arg[1] even if it's intentionally blank to preserve "auto-pick" without re-prompting
+                if (args.Length > 1) classChoice = (args[1] ?? string.Empty).Trim();
             }
 
             // Prompt if not provided
@@ -208,6 +209,9 @@ namespace Register
                     return;
                 }
 
+                // Set the current/old class action dropdown from "None" to "Dropped" before any retry loop
+                TrySetOldClassToDropped(driver, wait);
+
                 if (IsFull(selectedClass.Status))
                 {
                     Console.WriteLine("Selected class is FULL. Starting retry loop (press ESC to cancel).");
@@ -218,6 +222,14 @@ namespace Register
                     {
                         attempts++;
                         Console.WriteLine($"Attempt {attempts}: refreshing search...");
+
+                        // Restart from scratch after 150 tries to mitigate slowdowns
+                        if (attempts >= 150)
+                        {
+                            Console.WriteLine("Reached 150 attempts. Restarting the program to recover performance...");
+                            RestartSelf(courseCode, classChoice);
+                            return; // Dispose driver and exit current process quickly
+                        }
 
                         // Click the "Search Again" button
                         var searchAgainBtn = wait.Until(d =>
@@ -503,6 +515,127 @@ namespace Register
                 var js = (IJavaScriptExecutor)driver;
                 js.ExecuteScript("arguments[0].click();", element);
             }
+        }
+
+        // Sets the summary action select2 currently showing "None" to "Dropped" (best-effort).
+        private static void TrySetOldClassToDropped(IWebDriver driver, WebDriverWait wait)
+        {
+            try
+            {
+                // Locate the Select2 control:
+                // 1) Prefer the exact span id if present (#select2-chosen-4)
+                // 2) Fallback to the first select2-choice whose chosen text is "None"
+                var actionAnchor = wait.Until(d =>
+                {
+                    var spanById = d.FindElements(By.CssSelector("span#select2-chosen-4"))
+                                    .FirstOrDefault(s => s.Displayed);
+                    if (spanById != null)
+                    {
+                        var a = spanById.FindElement(By.XPath("./ancestor::a[contains(@class,'select2-choice')]"));
+                        return (a.Displayed && a.Enabled) ? a : null;
+                    }
+
+                    var candidates = d.FindElements(By.CssSelector("a.select2-choice"))
+                                      .Where(aEl =>
+                                      {
+                                          try
+                                          {
+                                              var chosen = aEl.FindElement(By.CssSelector("span.select2-chosen"));
+                                              var txt = (chosen.Text ?? string.Empty).Trim();
+                                              return aEl.Displayed && aEl.Enabled &&
+                                                     txt.Equals("None", StringComparison.OrdinalIgnoreCase);
+                                          }
+                                          catch { return false; }
+                                      })
+                                      .ToList();
+
+                    return candidates.FirstOrDefault();
+                });
+
+                if (actionAnchor == null) return;
+
+                // Open dropdown
+                SafeClick(driver, actionAnchor);
+
+                // Wait for the Select2 results list
+                wait.Until(d => d.FindElements(By.CssSelector("ul.select2-results")).Any(e => e.Displayed));
+
+                // Choose "Dropped"
+                var optionLi = wait.Until(d =>
+                {
+                    var div = d.FindElements(By.XPath(
+                        "//ul[contains(@class,'select2-results')]//div[" +
+                        "normalize-space(.)='Dropped' or " +
+                        "contains(translate(normalize-space(.), 'DROPPED', 'dropped'), 'dropped')" +
+                        "]"))
+                        .FirstOrDefault(e => e.Displayed);
+                    return div != null ? div.FindElement(By.XPath("./ancestor::li[1]")) : null;
+                });
+
+                SafeClick(driver, optionLi);
+
+                // Optional verification (ignore if element becomes stale due to re-render)
+                try
+                {
+                    wait.Until(d =>
+                    {
+                        try
+                        {
+                            var span = actionAnchor.FindElement(By.CssSelector("span.select2-chosen"));
+                            return string.Equals((span.Text ?? "").Trim(), "Dropped", StringComparison.OrdinalIgnoreCase);
+                        }
+                        catch { return true; }
+                    });
+                }
+                catch { /* best-effort */ }
+            }
+            catch
+            {
+                // best-effort; if not found or fails, continue without blocking
+            }
+        }
+
+        // Restart the current executable with the same courseCode and classChoice (preserves blank preference).
+        private static void RestartSelf(string courseCode, string classChoice)
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule.FileName;
+
+                // Preserve courseCode; preserve classChoice even if blank (to avoid re-prompt)
+                var argList = new List<string>();
+                if (!string.IsNullOrWhiteSpace(courseCode))
+                {
+                    argList.Add(QuoteArg(courseCode));
+                }
+                else
+                {
+                    // If missing, allow the next run to prompt for it
+                }
+
+                // Always pass second arg; empty quotes mean "auto-pick"
+                argList.Add(classChoice == null ? "\"\"" : QuoteArg(classChoice));
+
+                var psi = new ProcessStartInfo(exePath, string.Join(" ", argList))
+                {
+                    UseShellExecute = false,
+                    WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
+                };
+                Process.Start(psi);
+                Console.WriteLine("Restart initiated.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to restart: " + ex.Message);
+            }
+        }
+
+        private static string QuoteArg(string value)
+        {
+            if (value == null) return "\"\"";
+            // Basic quoting sufficient for our use-case
+            var escaped = value.Replace("\"", "\\\"");
+            return $"\"{escaped}\"";
         }
     }
 }
