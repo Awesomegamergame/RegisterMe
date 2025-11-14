@@ -216,17 +216,17 @@ namespace Register
                 {
                     Console.WriteLine("Selected class is FULL. Starting retry loop (press ESC to cancel).");
                     int attempts = 0;
-                    const int delayMs = 5000;
+                    const int delayMs = 2000;
 
                     while (true)
                     {
                         attempts++;
                         Console.WriteLine($"Attempt {attempts}: refreshing search...");
 
-                        // Restart from scratch after 150 tries to mitigate slowdowns
-                        if (attempts >= 150)
+                        // Restart from scratch after 250 tries to mitigate slowdowns
+                        if (attempts >= 250)
                         {
-                            Console.WriteLine("Reached 150 attempts. Restarting the program to recover performance...");
+                            Console.WriteLine("Reached 250 attempts. Restarting the program to recover performance...");
                             RestartSelf(courseCode, classChoice);
                             return; // Dispose driver and exit current process quickly
                         }
